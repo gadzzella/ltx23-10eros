@@ -1,0 +1,820 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>10Eros Generator</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Bebas+Neue&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0c0c0e;
+      --s1: #131316;
+      --s2: #1a1a1f;
+      --s3: #222228;
+      --border: rgba(255,255,255,0.06);
+      --border2: rgba(255,255,255,0.12);
+      --accent: #ff3c5f;
+      --accent2: #ff8c42;
+      --gold: #f5c842;
+      --text: #e8e8ec;
+      --muted: #5a5a68;
+      --muted2: #8a8a98;
+      --mono: 'Space Mono', monospace;
+      --display: 'Bebas Neue', sans-serif;
+      --body: 'DM Sans', sans-serif;
+      --r: 8px;
+      --r2: 14px;
+    }
+
+    html { font-size: 15px; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--body);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      overflow-x: hidden;
+    }
+
+    /* Scanline overlay */
+    body::after {
+      content: '';
+      position: fixed; inset: 0; z-index: 9999;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(0,0,0,0.03) 2px,
+        rgba(0,0,0,0.03) 4px
+      );
+      pointer-events: none;
+    }
+
+    /* Glow orbs */
+    .orb {
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(120px);
+      pointer-events: none;
+      z-index: 0;
+    }
+    .orb-1 { width: 600px; height: 600px; background: rgba(255,60,95,0.06); top: -200px; right: -200px; }
+    .orb-2 { width: 400px; height: 400px; background: rgba(245,200,66,0.04); bottom: 100px; left: -100px; }
+
+    .page {
+      width: 100%;
+      max-width: 680px;
+      padding: 48px 20px 100px;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* Header */
+    header { margin-bottom: 40px; }
+    .logo-row { display: flex; align-items: baseline; gap: 14px; margin-bottom: 6px; }
+    .logo {
+      font-family: var(--display);
+      font-size: 4.5rem;
+      letter-spacing: 0.06em;
+      line-height: 1;
+      background: linear-gradient(135deg, #ff3c5f, #ff8c42);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .version {
+      font-family: var(--mono);
+      font-size: 0.65rem;
+      color: var(--muted);
+      letter-spacing: 0.1em;
+      border: 1px solid var(--border2);
+      padding: 3px 8px;
+      border-radius: 4px;
+    }
+    .tagline {
+      font-family: var(--mono);
+      font-size: 0.7rem;
+      color: var(--muted);
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    /* Mode toggle */
+    .mode-row { display: flex; gap: 6px; margin-bottom: 20px; }
+    .mode-btn {
+      font-family: var(--mono);
+      font-size: 0.7rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      padding: 8px 18px;
+      border-radius: 100px;
+      border: 1px solid var(--border2);
+      background: transparent;
+      color: var(--muted2);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .mode-btn.active {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+    .mode-btn:hover:not(.active) { color: var(--text); }
+
+    /* Card */
+    .card {
+      background: var(--s1);
+      border: 1px solid var(--border);
+      border-radius: var(--r2);
+      padding: 18px;
+      margin-bottom: 10px;
+    }
+    .card-label {
+      font-family: var(--mono);
+      font-size: 0.6rem;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 10px;
+    }
+
+    /* Prompt */
+    textarea {
+      width: 100%;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: var(--text);
+      font-family: var(--body);
+      font-size: 0.9rem;
+      line-height: 1.65;
+      resize: vertical;
+      min-height: 100px;
+    }
+    textarea::placeholder { color: var(--muted); }
+    .prompt-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-top: 10px;
+      margin-top: 10px;
+      border-top: 1px solid var(--border);
+    }
+    .char-count { font-family: var(--mono); font-size: 0.65rem; color: var(--muted); }
+
+    /* Neg prompt toggle */
+    .neg-toggle {
+      font-family: var(--mono);
+      font-size: 0.6rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      cursor: pointer;
+      user-select: none;
+      display: flex; align-items: center; gap: 5px;
+    }
+    .neg-toggle::before { content: '▶'; font-size: 0.5rem; transition: transform 0.15s; }
+    .neg-toggle.open::before { transform: rotate(90deg); }
+    #neg-wrap { display: none; margin-top: 10px; }
+    #neg-wrap.open { display: block; }
+    #neg-prompt {
+      background: var(--s2);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      padding: 10px 12px;
+      font-size: 0.82rem;
+      min-height: 56px;
+    }
+
+    /* Image upload */
+    #image-drop {
+      border: 1.5px dashed var(--border2);
+      border-radius: var(--r);
+      padding: 32px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.15s;
+      position: relative;
+    }
+    #image-drop:hover, #image-drop.over {
+      border-color: var(--accent);
+      background: rgba(255,60,95,0.03);
+    }
+    #image-drop.has-img { padding: 0; border-style: solid; overflow: hidden; }
+    #image-drop img { width: 100%; display: block; max-height: 260px; object-fit: cover; border-radius: calc(var(--r) - 1px); }
+    .drop-hint { color: var(--muted2); font-size: 0.85rem; }
+    .drop-icon { font-size: 1.8rem; opacity: 0.4; margin-bottom: 6px; }
+    #file-input { display: none; }
+    .clear-img-btn {
+      position: absolute; top: 8px; right: 8px;
+      background: rgba(0,0,0,0.75);
+      border: none; color: #fff;
+      font-family: var(--mono); font-size: 0.65rem;
+      padding: 4px 10px; border-radius: 100px;
+      cursor: pointer; display: none;
+    }
+    .has-img .clear-img-btn { display: block; }
+
+    /* Settings grid */
+    .settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+
+    /* Slider control */
+    .ctrl-label {
+      font-family: var(--mono);
+      font-size: 0.6rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .ctrl-val { color: var(--accent); }
+    input[type=range] {
+      width: 100%;
+      -webkit-appearance: none;
+      height: 3px;
+      background: var(--s3);
+      border-radius: 2px;
+      outline: none;
+      cursor: pointer;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 13px; height: 13px;
+      border-radius: 50%;
+      background: var(--accent);
+      cursor: pointer;
+      transition: transform 0.1s;
+    }
+    input[type=range]::-webkit-slider-thumb:active { transform: scale(1.3); }
+
+    /* Aspect ratio */
+    .ar-grid { display: flex; gap: 5px; }
+    .ar-btn {
+      flex: 1;
+      font-family: var(--mono);
+      font-size: 0.68rem;
+      padding: 8px 0;
+      text-align: center;
+      background: var(--s2);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      color: var(--muted2);
+      cursor: pointer;
+      transition: all 0.12s;
+    }
+    .ar-btn.active {
+      background: rgba(255,60,95,0.1);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    /* Chips */
+    .chip-row { display: flex; gap: 6px; margin-top: 12px; flex-wrap: wrap; }
+    .chip {
+      font-family: var(--mono);
+      font-size: 0.62rem;
+      padding: 4px 10px;
+      background: var(--s2);
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      color: var(--muted2);
+    }
+    .chip strong { color: var(--text); }
+
+    /* LoRA section */
+    .lora-grid { display: flex; flex-direction: column; gap: 10px; }
+    .lora-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+      align-items: center;
+      padding: 10px 12px;
+      background: var(--s2);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+    }
+    .lora-name {
+      font-family: var(--mono);
+      font-size: 0.68rem;
+      color: var(--text);
+    }
+    .lora-tag {
+      font-size: 0.58rem;
+      font-family: var(--mono);
+      color: var(--muted);
+      margin-top: 2px;
+    }
+    .lora-strength-wrap { display: flex; align-items: center; gap: 8px; min-width: 140px; }
+    .lora-strength-val { font-family: var(--mono); font-size: 0.68rem; color: var(--accent); min-width: 28px; text-align: right; }
+    .lora-toggle {
+      width: 32px; height: 18px;
+      background: var(--s3);
+      border-radius: 100px;
+      border: 1px solid var(--border2);
+      cursor: pointer;
+      position: relative;
+      transition: background 0.15s;
+      flex-shrink: 0;
+    }
+    .lora-toggle.on { background: var(--accent); border-color: var(--accent); }
+    .lora-toggle::after {
+      content: '';
+      position: absolute;
+      top: 2px; left: 2px;
+      width: 12px; height: 12px;
+      border-radius: 50%;
+      background: #fff;
+      transition: transform 0.15s;
+    }
+    .lora-toggle.on::after { transform: translateX(14px); }
+
+    /* Endpoint */
+    .ep-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .field { display: flex; flex-direction: column; gap: 5px; }
+    .field label {
+      font-family: var(--mono);
+      font-size: 0.6rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .field input {
+      background: var(--s2);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      padding: 9px 12px;
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .field input:focus { border-color: var(--border2); }
+
+    /* Generate button */
+    #gen-btn {
+      width: 100%;
+      padding: 17px;
+      margin-top: 10px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border: none;
+      border-radius: var(--r2);
+      color: #fff;
+      font-family: var(--display);
+      font-size: 1.4rem;
+      letter-spacing: 0.1em;
+      cursor: pointer;
+      transition: opacity 0.15s, transform 0.1s;
+      position: relative;
+      overflow: hidden;
+    }
+    #gen-btn::before {
+      content: '';
+      position: absolute; inset: 0;
+      background: linear-gradient(135deg, rgba(255,255,255,0.1), transparent);
+      pointer-events: none;
+    }
+    #gen-btn:hover { opacity: 0.92; }
+    #gen-btn:active { transform: scale(0.99); }
+    #gen-btn:disabled { opacity: 0.35; cursor: not-allowed; transform: none; }
+
+    /* Status */
+    #status-card { display: none; }
+    .status-inner { display: flex; align-items: center; gap: 12px; }
+    .spinner {
+      width: 16px; height: 16px;
+      border: 2px solid var(--border2);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      flex-shrink: 0;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .status-msg { font-family: var(--mono); font-size: 0.75rem; color: var(--muted2); }
+    .status-msg strong { color: var(--text); }
+    .err-card { border-color: rgba(255,60,95,0.3); background: rgba(255,60,95,0.05); }
+    .err-msg { font-family: var(--mono); font-size: 0.75rem; color: var(--accent); }
+
+    /* Output */
+    #output-card { display: none; }
+    #out-video { width: 100%; border-radius: var(--r); background: #000; display: block; }
+    .out-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 10px;
+    }
+    .out-name { font-family: var(--mono); font-size: 0.65rem; color: var(--muted); }
+    .dl-btn {
+      font-family: var(--mono);
+      font-size: 0.65rem;
+      padding: 6px 14px;
+      border: 1px solid var(--border2);
+      border-radius: 100px;
+      color: var(--text);
+      background: transparent;
+      cursor: pointer;
+      text-decoration: none;
+      transition: border-color 0.15s, color 0.15s;
+    }
+    .dl-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+    @media (max-width: 520px) {
+      .settings-grid, .ep-grid { grid-template-columns: 1fr; }
+      .lora-row { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+<div class="orb orb-1"></div>
+<div class="orb orb-2"></div>
+
+<div class="page">
+
+  <header>
+    <div class="logo-row">
+      <div class="logo">10Eros</div>
+      <span class="version">LTX 2.3</span>
+    </div>
+    <div class="tagline">Image · Text · Video · Audio</div>
+  </header>
+
+  <!-- MODE -->
+  <div class="mode-row">
+    <button class="mode-btn active" id="btn-i2v" onclick="setMode('i2v')">Image → Video</button>
+    <button class="mode-btn" id="btn-t2v" onclick="setMode('t2v')">Text → Video</button>
+  </div>
+
+  <!-- PROMPT -->
+  <div class="card">
+    <div class="card-label">Prompt</div>
+    <textarea id="prompt" maxlength="1400"
+      placeholder="Describe the scene, motion, camera, mood, dialogue..."></textarea>
+    <div class="prompt-footer">
+      <span class="neg-toggle" id="neg-toggle" onclick="toggleNeg()">Negative prompt</span>
+      <span class="char-count"><span id="cc">0</span> / 1400</span>
+    </div>
+    <div id="neg-wrap">
+      <textarea id="neg-prompt" class="neg-prompt">pc game, console game, video game, cartoon, childish, ugly</textarea>
+    </div>
+  </div>
+
+  <!-- IMAGE UPLOAD -->
+  <div class="card" id="img-card">
+    <div class="card-label">Source Image</div>
+    <div id="image-drop"
+      onclick="onDropClick()"
+      ondragover="onDragOver(event)"
+      ondragleave="onDragLeave()"
+      ondrop="onDrop(event)">
+      <button class="clear-img-btn" onclick="clearImg(event)">✕ Remove</button>
+      <div id="drop-inner">
+        <div class="drop-icon">⬆</div>
+        <div class="drop-hint">Click or drag image here</div>
+      </div>
+    </div>
+    <input type="file" id="file-input" accept="image/*" onchange="onFilePick(event)" />
+  </div>
+
+  <!-- SETTINGS -->
+  <div class="card">
+    <div class="card-label">Settings</div>
+    <div class="settings-grid">
+      <div>
+        <div class="ctrl-label">Duration <span class="ctrl-val" id="sec-val">5.0s</span></div>
+        <input type="range" id="seconds" min="1" max="15" step="0.5" value="5" oninput="onSec()">
+      </div>
+      <div>
+        <div class="ctrl-label">Aspect Ratio</div>
+        <div class="ar-grid">
+          <button class="ar-btn active" data-ar="16:9" onclick="setAR(this)">16:9</button>
+          <button class="ar-btn" data-ar="9:16" onclick="setAR(this)">9:16</button>
+          <button class="ar-btn" data-ar="1:1" onclick="setAR(this)">1:1</button>
+        </div>
+      </div>
+    </div>
+    <div class="chip-row">
+      <div class="chip">Frames: <strong id="frames-val">121</strong></div>
+      <div class="chip">FPS: <strong>25</strong></div>
+      <div class="chip" id="res-chip">1280 × 720</div>
+    </div>
+  </div>
+
+  <!-- LORAS -->
+  <div class="card">
+    <div class="card-label">LoRAs</div>
+    <div class="lora-grid">
+
+      <div class="lora-row">
+        <div>
+          <div class="lora-name">Penile Praxis V4</div>
+          <div class="lora-tag">General NSFW · LTX 2.3</div>
+          <div style="margin-top:8px">
+            <input type="range" id="s-penile" min="0" max="1.5" step="0.05" value="0.85"
+              oninput="document.getElementById('v-penile').textContent=parseFloat(this.value).toFixed(2)">
+          </div>
+        </div>
+        <div class="lora-strength-wrap">
+          <span class="lora-strength-val" id="v-penile">0.85</span>
+          <div class="lora-toggle on" id="t-penile" onclick="toggleLora(this)"></div>
+        </div>
+      </div>
+
+      <div class="lora-row">
+        <div>
+          <div class="lora-name">Anal Insertion I2V</div>
+          <div class="lora-tag">NSFW · LTX 2.3</div>
+          <div style="margin-top:8px">
+            <input type="range" id="s-anal" min="0" max="1.5" step="0.05" value="0.85"
+              oninput="document.getElementById('v-anal').textContent=parseFloat(this.value).toFixed(2)">
+          </div>
+        </div>
+        <div class="lora-strength-wrap">
+          <span class="lora-strength-val" id="v-anal">0.85</span>
+          <div class="lora-toggle on" id="t-anal" onclick="toggleLora(this)"></div>
+        </div>
+      </div>
+
+      <div class="lora-row">
+        <div>
+          <div class="lora-name">DR34ML4Y All-in-One</div>
+          <div class="lora-tag">NSFW · WAN/LTX 2</div>
+          <div style="margin-top:8px">
+            <input type="range" id="s-dr" min="0" max="1.5" step="0.05" value="0.85"
+              oninput="document.getElementById('v-dr').textContent=parseFloat(this.value).toFixed(2)">
+          </div>
+        </div>
+        <div class="lora-strength-wrap">
+          <span class="lora-strength-val" id="v-dr">0.85</span>
+          <div class="lora-toggle on" id="t-dr" onclick="toggleLora(this)"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ENDPOINT -->
+  <div class="card">
+    <div class="card-label">Endpoint</div>
+    <div class="ep-grid">
+      <div class="field">
+        <label>RunPod URL</label>
+        <input type="url" id="ep-url" placeholder="https://api.runpod.ai/v2/<id>/runsync" />
+      </div>
+      <div class="field">
+        <label>API Key</label>
+        <input type="password" id="ep-key" placeholder="RunPod API key" autocomplete="off" />
+      </div>
+    </div>
+  </div>
+
+  <button id="gen-btn" onclick="generate()">GENERATE</button>
+
+  <!-- STATUS -->
+  <div class="card" id="status-card" style="margin-top:10px">
+    <div class="status-inner">
+      <div class="spinner" id="spinner"></div>
+      <div class="status-msg" id="status-msg">Submitting…</div>
+    </div>
+  </div>
+
+  <!-- OUTPUT -->
+  <div class="card" id="output-card" style="margin-top:10px">
+    <div class="card-label">Output</div>
+    <video id="out-video" controls playsinline></video>
+    <div class="out-footer">
+      <span class="out-name" id="out-name"></span>
+      <a id="dl-link" class="dl-btn" download>Download</a>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ── State
+let mode = 'i2v';
+let imgB64 = null;
+let imgFilename = null;
+const AR = { '16:9':[1280,720], '9:16':[720,1280], '1:1':[768,768] };
+let currentAR = '16:9';
+
+// ── Mode
+function setMode(m) {
+  mode = m;
+  document.getElementById('btn-i2v').classList.toggle('active', m==='i2v');
+  document.getElementById('btn-t2v').classList.toggle('active', m==='t2v');
+  document.getElementById('img-card').style.display = m==='i2v' ? 'block' : 'none';
+}
+
+// ── Prompt char count
+document.getElementById('prompt').addEventListener('input', function() {
+  document.getElementById('cc').textContent = this.value.length;
+});
+
+// ── Neg prompt
+function toggleNeg() {
+  document.getElementById('neg-toggle').classList.toggle('open');
+  document.getElementById('neg-wrap').classList.toggle('open');
+}
+
+// ── Duration
+function onSec() {
+  const s = parseFloat(document.getElementById('seconds').value);
+  document.getElementById('sec-val').textContent = s.toFixed(1) + 's';
+  document.getElementById('frames-val').textContent = snapFrames(Math.round(s * 25));
+}
+function snapFrames(n) {
+  if (n < 25) n = 25;
+  const r = (n-1) % 8;
+  if (r === 0) return n;
+  const lo = n - r, hi = lo + 8;
+  return (n-lo) <= (hi-n) ? lo : hi;
+}
+
+// ── Aspect ratio
+function setAR(btn) {
+  document.querySelectorAll('.ar-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  currentAR = btn.dataset.ar;
+  const [w,h] = AR[currentAR];
+  document.getElementById('res-chip').textContent = `${w} × ${h}`;
+}
+
+// ── Image upload
+function onDropClick() { if (!imgB64) document.getElementById('file-input').click(); }
+function onDragOver(e) { e.preventDefault(); document.getElementById('image-drop').classList.add('over'); }
+function onDragLeave() { document.getElementById('image-drop').classList.remove('over'); }
+function onDrop(e) {
+  e.preventDefault();
+  document.getElementById('image-drop').classList.remove('over');
+  const f = e.dataTransfer.files[0];
+  if (f && f.type.startsWith('image/')) loadImg(f);
+}
+function onFilePick(e) { if (e.target.files[0]) loadImg(e.target.files[0]); }
+function loadImg(file) {
+  imgFilename = file.name;
+  const r = new FileReader();
+  r.onload = e => {
+    imgB64 = e.target.result.split(',')[1];
+    const drop = document.getElementById('image-drop');
+    drop.classList.add('has-img');
+    drop.onclick = null;
+    document.getElementById('drop-inner').innerHTML = `<img src="${e.target.result}" alt="source" />`;
+  };
+  r.readAsDataURL(file);
+}
+function clearImg(e) {
+  e.stopPropagation();
+  imgB64 = null; imgFilename = null;
+  const drop = document.getElementById('image-drop');
+  drop.classList.remove('has-img');
+  drop.onclick = () => onDropClick();
+  document.getElementById('drop-inner').innerHTML = `<div class="drop-icon">⬆</div><div class="drop-hint">Click or drag image here</div>`;
+  document.getElementById('file-input').value = '';
+}
+
+// ── LoRA toggles
+function toggleLora(el) {
+  el.classList.toggle('on');
+}
+function getLoraStrength(id, toggleId) {
+  const tog = document.getElementById(toggleId);
+  if (!tog.classList.contains('on')) return 0;
+  return parseFloat(document.getElementById(id).value);
+}
+
+// ── Generate
+async function generate() {
+  const prompt = document.getElementById('prompt').value.trim();
+  const url = document.getElementById('ep-url').value.trim();
+  const key = document.getElementById('ep-key').value.trim();
+  if (!prompt) { alert('Prompt is required.'); return; }
+  if (!url) { alert('RunPod endpoint URL is required.'); return; }
+  if (!key) { alert('API key is required.'); return; }
+  if (mode === 'i2v' && !imgB64) { alert('Please upload a source image for I2V mode.'); return; }
+
+  const seconds = parseFloat(document.getElementById('seconds').value);
+  const numFrames = snapFrames(Math.round(seconds * 25));
+  const [w, h] = AR[currentAR];
+
+  const payload = {
+    input: {
+      prompt,
+      negative_prompt: document.getElementById('neg-prompt').value.trim(),
+      width: w,
+      height: h,
+      num_frames: numFrames,
+      fps: 25,
+      bypass_i2v: mode === 't2v',
+      lora_penile_strength: getLoraStrength('s-penile', 't-penile'),
+      lora_anal_strength: getLoraStrength('s-anal', 't-anal'),
+      lora_dr34ml4y_strength: getLoraStrength('s-dr', 't-dr'),
+    }
+  };
+
+  if (mode === 'i2v' && imgB64) {
+    payload.input.image = imgB64;
+    payload.input.image_filename = imgFilename || 'source_image.png';
+  }
+
+  document.getElementById('gen-btn').disabled = true;
+  document.getElementById('output-card').style.display = 'none';
+  showStatus('Submitting job…');
+
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
+      body: JSON.stringify(payload)
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`);
+    const data = await res.json();
+
+    if (url.includes('/runsync')) {
+      handleOutput(data);
+    } else {
+      const jobId = data.id;
+      if (!jobId) throw new Error('No job ID returned.');
+      await poll(jobId, url, key);
+    }
+  } catch(err) {
+    showError(err.message);
+  } finally {
+    document.getElementById('gen-btn').disabled = false;
+  }
+}
+
+async function poll(jobId, url, key) {
+  const base = url.replace(/\/run$/, '');
+  const statusUrl = `${base}/status/${jobId}`;
+  for (let i = 0; i < 300; i++) {
+    await sleep(3000);
+    showStatus(`Running — <strong>${i*3}s</strong> elapsed`);
+    try {
+      const r = await fetch(statusUrl, { headers: { 'Authorization': `Bearer ${key}` } });
+      if (!r.ok) continue;
+      const d = await r.json();
+      if (d.status === 'COMPLETED') { handleOutput(d); return; }
+      if (d.status === 'FAILED') throw new Error(`Job failed: ${JSON.stringify(d.error || d)}`);
+    } catch(e) { if (e.message.includes('failed')) throw e; }
+  }
+  throw new Error('Job timed out.');
+}
+
+function handleOutput(data) {
+  hideStatus();
+  const outputs = data.output || [];
+  const vid = outputs.find(o => o.media_type === 'video/mp4' || (o.filename||'').endsWith('.mp4'));
+  if (!vid) { showError('No video in response: ' + JSON.stringify(data).slice(0,200)); return; }
+  const src = vid.type === 'base64'
+    ? URL.createObjectURL(b64Blob(vid.data, 'video/mp4'))
+    : vid.data;
+  const v = document.getElementById('out-video');
+  v.src = src;
+  document.getElementById('out-name').textContent = vid.filename || 'output.mp4';
+  const dl = document.getElementById('dl-link');
+  dl.href = src; dl.download = vid.filename || 'output.mp4';
+  document.getElementById('output-card').style.display = 'block';
+  v.play().catch(()=>{});
+  v.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+// ── Status helpers
+function showStatus(html) {
+  const c = document.getElementById('status-card');
+  c.style.display = 'block';
+  c.className = 'card';
+  document.getElementById('spinner').style.display = 'block';
+  document.getElementById('status-msg').innerHTML = html;
+}
+function hideStatus() { document.getElementById('status-card').style.display = 'none'; }
+function showError(msg) {
+  const c = document.getElementById('status-card');
+  c.style.display = 'block';
+  c.className = 'card err-card';
+  document.getElementById('spinner').style.display = 'none';
+  document.getElementById('status-msg').innerHTML = `<span class="err-msg">Error: ${esc(msg)}</span>`;
+}
+
+// ── Utils
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+function b64Blob(b64, mime) {
+  const bin = atob(b64), arr = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+  return new Blob([arr], { type: mime });
+}
+
+// Init
+onSec();
+</script>
+</body>
+</html>
