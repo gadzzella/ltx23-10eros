@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1.7
-FROM nvidia/cuda:12.4.1-cudnn-runtime-ubuntu22.04
+FROM nvidia/cuda:12.8.1-cudnn-runtime-ubuntu22.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PIP_PREFER_BINARY=1
@@ -18,7 +18,7 @@ RUN /usr/bin/yes | comfy --workspace /comfyui install --nvidia
 
 RUN pip install --no-cache-dir --force-reinstall \
     torch torchvision torchaudio \
-    --index-url https://download.pytorch.org/whl/cu124
+    --index-url https://download.pytorch.org/whl/cu128
 
 RUN pip install --no-cache-dir kornia==0.7.4
 
