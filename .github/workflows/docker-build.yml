@@ -10,30 +10,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Free disk space (Safe & Stable Purge)
+      - name: Free disk space
         run: |
-          echo "=== Disk space BEFORE cleanup ==="
-          df -h
-          
-          # Remove massive application/language stacks safely
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc
-          sudo rm -rf /opt/hostedtoolcache /usr/local/share/boost /usr/share/swift
-          sudo rm -rf /opt/microsoft /usr/local/share/chromium
-          sudo rm -rf /usr/local/lib/node_modules
-          sudo rm -rf /usr/share/texlive /usr/local/texlive
-          sudo rm -rf /usr/lib/jvm /usr/share/java /usr/share/gradle
-          sudo rm -rf /home/runner/.cargo /home/runner/.rustup
-          sudo rm -rf /var/lib/snapd
-          
-          # Safe file system cleanups
-          sudo rm -rf /usr/share/locale/* /usr/share/man/* /usr/share/doc/*
-          sudo rm -rf /tmp/* /var/tmp/*
-          
-          # Clean docker system overhead cleanly
           docker system prune -af --volumes
-          
-          echo "=== Disk space AFTER cleanup ==="
-          df -h
 
       - name: Checkout repo (Shallow Clone)
         uses: actions/checkout@v4
