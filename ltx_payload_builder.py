@@ -2,7 +2,7 @@
 ltx_payload_builder.py
 
 Injects user-supplied parameters into the LTX 2.3 / 10Eros ComfyUI workflow.
-Workflow file: video_ltx23_10eros_i2v_API.json
+Workflow file: video_ltx23_10eros_i2v_API.json (default, overridable via WORKFLOW_PATH env var)
 
 Node map:
   267:266  PrimitiveStringMultiline  -> positive prompt
@@ -24,7 +24,10 @@ import json
 import os
 import random
 
-WORKFLOW_PATH = os.path.join(os.path.dirname(__file__), "video_ltx23_10eros_i2v_API.json")
+WORKFLOW_PATH = os.environ.get(
+    "WORKFLOW_PATH",
+    os.path.join(os.path.dirname(__file__), "video_ltx23_10eros_i2v_API.json")
+)
 
 ASPECT_PRESETS = {
     "16:9": (1280, 720),
