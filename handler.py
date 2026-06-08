@@ -2,21 +2,27 @@
 handler.py — RunPod serverless handler for LTX 2.3 / 10Eros
 
 Input fields:
-  prompt               str    required
-  image                str    optional  base64 image (required for I2V)
-  image_filename       str    optional  default: source_image.png
-  negative_prompt      str    optional
-  aspect_ratio         str    optional  16:9 | 9:16 | 1:1 | 4:3 | 3:4
-  width                int    optional  default 1280 (overridden by aspect_ratio)
-  height               int    optional  default 720  (overridden by aspect_ratio)
-  seconds              float  optional  duration — overrides num_frames
-  num_frames           int    optional  default 121
-  fps                  int    optional  default 25
-  seed                 int    optional  random if omitted
-  bypass_i2v           bool   optional  True=T2V, False=I2V (default False)
-  lora_penile_strength float  optional  default 0.85
-  lora_anal_strength   float  optional  default 0.85
-  lora_dr34ml4y_strength float optional default 0.85
+  prompt                 str    required
+  image                  str    optional  base64 image (required for I2V)
+  image_filename         str    optional  default: source_image.png
+  negative_prompt        str    optional
+  aspect_ratio           str    optional  16:9 | 9:16 | 1:1 | 4:3 | 3:4
+  width                  int    optional  default 1280 (overridden by aspect_ratio)
+  height                 int    optional  default 720  (overridden by aspect_ratio)
+  seconds                float  optional  duration — overrides num_frames
+  num_frames             int    optional  default 121
+  fps                    int    optional  default 25
+  seed                   int    optional  random if omitted
+  bypass_i2v             bool   optional  True=T2V, False=I2V (default False)
+  lora_penile_strength   float  optional  default 0.85
+  lora_anal_strength     float  optional  default 0.85
+  lora_dr34ml4y_strength float  optional  default 0.85
+  upscaler_enabled       bool   optional  default True
+  temperature            float  optional  LLM sampling temperature (default 0.7)
+  top_k                  int    optional  LLM top-k (default 64)
+  top_p                  float  optional  LLM top-p (default 0.95)
+  repetition_penalty     float  optional  LLM repetition penalty (default 1.05)
+  thinking               bool   optional  LLM thinking mode (default False)
 """
 
 import os
@@ -62,6 +68,12 @@ def handler(job: dict) -> dict:
         lora_penile_strength=float(inp.get("lora_penile_strength", 0.85)),
         lora_anal_strength=float(inp.get("lora_anal_strength", 0.85)),
         lora_dr34ml4y_strength=float(inp.get("lora_dr34ml4y_strength", 0.85)),
+        upscaler_enabled=bool(inp.get("upscaler_enabled", True)),
+        temperature=float(inp.get("temperature", 0.7)),
+        top_k=int(inp.get("top_k", 64)),
+        top_p=float(inp.get("top_p", 0.95)),
+        repetition_penalty=float(inp.get("repetition_penalty", 1.05)),
+        thinking=bool(inp.get("thinking", False)),
     )
 
     # Write images to ComfyUI input folder

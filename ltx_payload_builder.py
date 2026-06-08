@@ -5,19 +5,21 @@ Injects user-supplied parameters into the LTX 2.3 / 10Eros ComfyUI workflow.
 Workflow file: video_ltx23_10eros_i2v_API.json (default, overridable via WORKFLOW_PATH env var)
 
 Node map:
-  267:266  PrimitiveStringMultiline  -> positive prompt
-  267:247  CLIPTextEncode            -> negative prompt
-  269      LoadImage                 -> source image filename
-  267:257  PrimitiveInt              -> width
-  267:258  PrimitiveInt              -> height
-  267:225  PrimitiveInt              -> num_frames
-  267:260  PrimitiveInt              -> fps
-  267:216  RandomNoise               -> seed (main sampler)
-  267:237  RandomNoise               -> seed (refinement sampler)
-  267:201  PrimitiveBoolean          -> bypass_i2v
-  267:280  LoraLoaderModelOnly       -> Penile Praxis strength
-  267:281  LoraLoaderModelOnly       -> Anal Insertion strength
-  267:282  LoraLoaderModelOnly       -> DR34ML4Y strength
+  267:266  PrimitiveStringMultiline    -> positive prompt
+  267:247  CLIPTextEncode              -> negative prompt
+  269      LoadImage                   -> source image filename
+  267:257  PrimitiveInt                -> width
+  267:258  PrimitiveInt                -> height
+  267:225  PrimitiveInt                -> num_frames
+  267:260  PrimitiveInt                -> fps
+  267:216  RandomNoise                 -> seed (main sampler)
+  267:237  RandomNoise                 -> seed (refinement sampler)
+  267:201  PrimitiveBoolean            -> bypass_i2v
+  267:280  LoraLoaderModelOnly         -> Penile Praxis strength
+  267:281  LoraLoaderModelOnly         -> Anal Insertion strength
+  267:282  LoraLoaderModelOnly         -> DR34ML4Y strength
+  267:274  TextGenerateLTX2Prompt      -> temperature, top_k, top_p, repetition_penalty, thinking
+  267:230  LTXVImgToVideoInplace       -> upscaler bypass (latent input swapped to 267:217)
 """
 
 import json
@@ -64,6 +66,12 @@ def build_payload(
     lora_penile_strength: float = 0.85,
     lora_anal_strength: float = 0.85,
     lora_dr34ml4y_strength: float = 0.85,
+    upscaler_enabled: bool = True,
+    temperature: float = 0.7,
+    top_k: int = 64,
+    top_p: float = 0.95,
+    repetition_penalty: float = 1.05,
+    thinking: bool = False,
 ) -> tuple[dict, list[dict]]:
     with open(WORKFLOW_PATH) as f:
         workflow = json.load(f)
@@ -77,6 +85,7 @@ def build_payload(
         seed = random.randint(0, 2**32 - 1)
     seed2 = (seed + 1) % (2**32)
 
+    # Core params
     workflow["267:266"]["inputs"]["value"] = prompt
     workflow["267:247"]["inputs"]["text"] = negative_prompt
     workflow["267:257"]["inputs"]["value"] = width
@@ -91,6 +100,20 @@ def build_payload(
     workflow["267:280"]["inputs"]["strength_model"] = lora_penile_strength
     workflow["267:281"]["inputs"]["strength_model"] = lora_anal_strength
     workflow["267:282"]["inputs"]["strength_model"] = lora_dr34ml4y_strength
+
+    # LLM prompt enhancer (TextGenerateLTX2Prompt)
+    workflow["267:274"]["inputs"]["sampling_mode.temperature"] = temperature
+    workflow["267:274"]["inputs"]["sampling_mode.top_k"] = top_k
+    workflow["267:274"]["inputs"]["sampling_mode.top_p"] = top_p
+    workflow["267:274"]["inputs"]["sampling_mode.repetition_penalty"] = repetition_penalty
+    workflow["267:274"]["inputs"]["thinking"] = thinking
+    workflow["267:274"]["inputs"]["sampling_mode.seed"] = seed
+
+    # Upscaler: bypass by rewiring 267:230's latent input to skip 267:253
+    if not upscaler_enabled:
+        workflow["267:230"]["inputs"]["latent"] = ["267:217", 0]
+    else:
+        workflow["267:230"]["inputs"]["latent"] = ["267:253", 0]
 
     images = []
     if image_b64 and not bypass_i2v:
