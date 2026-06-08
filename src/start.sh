@@ -1,9 +1,17 @@
 #!/bin/bash
 set -euo pipefail
-
 echo "=== LTX 2.3 / 10Eros Worker Starting ==="
 
-# Start ComfyUI with lowvram flag (required for Gemma + 10Eros to coexist)
+# Download models if not already present
+CHECKPOINT="/comfyui/models/checkpoints/10Eros/10Eros_v1-fp8mixed_learned.safetensors"
+if [ ! -f "$CHECKPOINT" ]; then
+    echo "[MODELS] First cold start — downloading models..."
+    HF_TOKEN="${HF_TOKEN:-}" CIVITAI_TOKEN="${CIVITAI_TOKEN:-}" bash /src/download_models.sh
+    echo "[MODELS] Download complete."
+else
+    echo "[MODELS] Models already present, skipping download."
+fi
+
 echo "[START] Launching ComfyUI..."
 python /comfyui/main.py \
     --listen 127.0.0.1 \
@@ -13,7 +21,6 @@ python /comfyui/main.py \
     --lowvram \
     &
 
-# Wait for ComfyUI to be ready
 echo "[WAIT] Waiting for ComfyUI on port 8188..."
 for i in $(seq 1 90); do
     if curl -sf http://127.0.0.1:8188/system_stats > /dev/null 2>&1; then
