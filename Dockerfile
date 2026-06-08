@@ -1,9 +1,6 @@
 # syntax=docker/dockerfile:1.7
 FROM nvidia/cuda:12.4.1-cudnn-runtime-ubuntu22.04
 
-ARG HF_TOKEN
-ARG CIVITAI_TOKEN
-
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PIP_PREFER_BINARY=1
 ENV PYTHONUNBUFFERED=1
@@ -65,10 +62,18 @@ WORKDIR /
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# --- VARIABLES & MODEL DOWNLOAD PHASE ---
+# Declare arguments right before usage to prevent build-cache isolation blanking
+ARG HF_TOKEN
+ARG CIVITAI_TOKEN
+
+# Map them to active runtime system environments for the shell downloader execution block
+ENV HF_TOKEN=${HF_TOKEN}
+ENV CIVITAI_TOKEN=${CIVITAI_TOKEN}
+
 # Download all models at build time
 COPY src/download_models.sh /src/download_models.sh
 RUN chmod +x /src/download_models.sh && \
-    HF_TOKEN=${HF_TOKEN} CIVITAI_TOKEN=${CIVITAI_TOKEN} \
     bash /src/download_models.sh
 
 # App files
