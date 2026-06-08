@@ -10,8 +10,12 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Free disk space
+      - name: Free disk space (Aggressive Purge)
         run: |
+          echo "=== Disk space BEFORE cleanup ==="
+          df -h
+          
+          # Remove heavy development stacks and runtimes
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc
           sudo rm -rf /opt/hostedtoolcache /usr/local/share/boost /usr/share/swift
           sudo rm -rf /opt/microsoft /usr/local/share/chromium
@@ -19,17 +23,30 @@ jobs:
           sudo rm -rf /usr/share/texlive /usr/local/texlive
           sudo rm -rf /usr/lib/jvm /usr/share/java /usr/share/gradle
           sudo rm -rf /home/runner/.cargo /home/runner/.rustup
+          
+          # Remove unneeded Linux modules, headers, and localized assets
+          sudo rm -rf /usr/share/locale/* /usr/share/man/* /usr/share/doc/*
+          sudo apt-get remove -y 'linux-modules-.*' 'linux-headers-.*' || true
+          
+          # Remove Snapcraft daemon and systemic caches
+          sudo rm -rf /var/lib/snapd
           sudo rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
-          sudo apt-get remove -y '^dotnet-.*' '^llvm-.*' '^mysql-.*' '^mongodb-.*' \
-            google-chrome-stable firefox powershell mono-complete \
-            azure-cli google-cloud-sdk || true
+          
+          # Purge heavy pre-installed packages
+          sudo apt-get remove -y '^dotnet-.*' '^llvm-.*' '^mysql-.*' '^mongodb-.*'             google-chrome-stable firefox powershell mono-complete             azure-cli google-cloud-sdk || true
           sudo apt-get autoremove --purge -y
           sudo apt-get clean
+          
+          # Wipe host Docker images and volumes
           docker system prune -af --volumes
+          
+          echo "=== Disk space AFTER cleanup ==="
           df -h
 
-      - name: Checkout repo
+      - name: Checkout repo (Shallow Clone)
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 1  # Only pull the latest commit to prevent cloning heavy historical artifacts
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -40,7 +57,7 @@ jobs:
           username: gadzela
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build and push
+      - name: Build and push (With GitHub Cache Offloading)
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -49,4 +66,6 @@ jobs:
           build-args: |
             HF_TOKEN=${{ secrets.HF_TOKEN }}
             CIVITAI_TOKEN=${{ secrets.CIVITAI_TOKEN }}
-          no-cache: true
+          # Offload the build layer storage completely off the local runner disk to prevent amplification
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
