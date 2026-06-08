@@ -12,57 +12,20 @@ jobs:
     steps:
       - name: Free disk space
         run: |
-          # Remove large SDKs, frameworks, browsers
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc
           sudo rm -rf /opt/hostedtoolcache /usr/local/share/boost /usr/share/swift
-          sudo rm -rf /opt/microsoft /usr/local/share/chromium /usr/share/dotnet
+          sudo rm -rf /opt/microsoft /usr/local/share/chromium
           sudo rm -rf /usr/local/lib/node_modules
+          sudo rm -rf /usr/share/texlive /usr/local/texlive
+          sudo rm -rf /usr/lib/jvm /usr/share/java /usr/share/gradle
+          sudo rm -rf /home/runner/.cargo /home/runner/.rustup
+          sudo rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
           sudo apt-get remove -y '^dotnet-.*' '^llvm-.*' '^mysql-.*' '^mongodb-.*' \
             google-chrome-stable firefox powershell mono-complete \
             azure-cli google-cloud-sdk || true
-          sudo apt-get autoremove -y
-          sudo apt-get clean
-
-          # Remove TeX Live (often several GB)
-          sudo rm -rf /usr/share/texlive /usr/local/texlive
-
-          # Remove large shared data directories
-          sudo rm -rf /usr/share/opencv /usr/share/plexmediaserver /usr/share/solr /usr/share/grafana
-          sudo rm -rf /usr/share/wordnet /usr/share/emacs /usr/share/R
-
-          # Remove Java/JVM installations
-          sudo rm -rf /usr/lib/jvm
-          sudo rm -rf /usr/share/java /usr/share/gradle
-
-          # Remove Rust toolchain and caches
-          sudo rm -rf /usr/share/rust /home/runner/.cargo /home/runner/.rustup
-
-          # Deeper APT cleanup
-          sudo rm -rf /var/lib/apt/lists/*
-          sudo apt-get autoclean
-
-          # Wipe GitHub tool cache (if not fully removed earlier)
-          sudo rm -rf /opt/hostedtoolcache/*
-          rm -rf /home/runner/work/_tool/*
-
-          # Clear pip and npm caches
-          rm -rf ~/.cache/pip ~/.cache/pipenv
-          npm cache clean --force
-
-          # Aggressive Docker cleanup (beyond docker system prune)
-          docker system prune -af --volumes
-          docker volume prune -f
-          docker network prune -f
-          docker image prune -af
-
-          # Clear temporary directories
-          sudo rm -rf /tmp/* /var/tmp/*
-
-          # Remove old kernels (safe because runner will be replaced after job)
           sudo apt-get autoremove --purge -y
-          sudo apt-get remove -y 'linux-image-.*-generic' || true
-
-          # Show final free space
+          sudo apt-get clean
+          docker system prune -af --volumes
           df -h
 
       - name: Checkout repo
