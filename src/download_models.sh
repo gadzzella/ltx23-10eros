@@ -1,83 +1,145 @@
 #!/bin/bash
 set -euo pipefail
 
-COMFY_MODELS="/comfyui/models"
+# ─── Logging helpers ──────────────────────────────────────────────────────────
+ts()  { date '+%Y-%m-%dT%H:%M:%S'; }
+log() { echo "[$(ts())] $*"; }
+
+# MODEL_STORE is set by start.sh and points to the volume (or local fallback)
+COMFY_MODELS="${MODEL_STORE:-/comfyui/models}"
 HF_TOKEN="${HF_TOKEN:-}"
 CIVITAI_TOKEN="${CIVITAI_TOKEN:-}"
+
+log "=== download_models.sh starting ==="
+log "COMFY_MODELS = $COMFY_MODELS"
+log "HF_TOKEN     = ${HF_TOKEN:+set (${#HF_TOKEN} chars)}${HF_TOKEN:-NOT SET}"
+log "CIVITAI_TOKEN= ${CIVITAI_TOKEN:+set (${#CIVITAI_TOKEN} chars)}${CIVITAI_TOKEN:-NOT SET}"
+
+# ─── Download helpers ─────────────────────────────────────────────────────────
 
 hf_download() {
     local url="$1"
     local dest="$2"
+    local name
+    name="$(basename "$dest")"
+
     mkdir -p "$(dirname "$dest")"
+
     if [ -f "$dest" ] && [ -s "$dest" ]; then
-        echo "[SKIP] $dest"
+        local size
+        size=$(du -sh "$dest" | cut -f1)
+        log "[SKIP] $name already present ($size)"
         return 0
     fi
-    echo "[DL] $url"
+
+    log "[DL] HuggingFace: $name"
+    log "     → $url"
+    log "     → $dest"
+
+    local start_time=$SECONDS
     wget --quiet --show-progress \
         --header="Authorization: Bearer $HF_TOKEN" \
-        -O "$dest" "$url"
-    if [ ! -s "$dest" ]; then
-        echo "[ERROR] Download failed or empty: $dest"
+        -O "${dest}.tmp" "$url" 2>&1 | \
+        stdbuf -oL tr '\r' '\n' | grep -v '^$' | \
+        while IFS= read -r line; do log "     $line"; done || true
+
+    if [ ! -f "${dest}.tmp" ] || [ ! -s "${dest}.tmp" ]; then
+        log "[ERROR] Download produced empty file: $dest"
+        rm -f "${dest}.tmp"
         exit 1
     fi
+
+    mv "${dest}.tmp" "$dest"
+    local elapsed=$(( SECONDS - start_time ))
+    local size
+    size=$(du -sh "$dest" | cut -f1)
+    log "[OK]  $name — ${size} in ${elapsed}s"
 }
 
 civitai_download() {
     local version_id="$1"
     local dest="$2"
+    local name
+    name="$(basename "$dest")"
+
     mkdir -p "$(dirname "$dest")"
+
     if [ -f "$dest" ] && [ -s "$dest" ]; then
-        echo "[SKIP] $dest"
+        local size
+        size=$(du -sh "$dest" | cut -f1)
+        log "[SKIP] $name already present ($size)"
         return 0
     fi
+
     if [ -z "$CIVITAI_TOKEN" ]; then
-        echo "[ERROR] CIVITAI_TOKEN not set"
+        log "[ERROR] CIVITAI_TOKEN not set — cannot download $name (version $version_id)"
         exit 1
     fi
-    echo "[DL] Civitai $version_id -> $dest"
+
+    log "[DL] Civitai version $version_id: $name"
+    log "     → $dest"
+
+    local start_time=$SECONDS
     wget --quiet --show-progress \
         --header="Authorization: Bearer $CIVITAI_TOKEN" \
-        -O "$dest" \
-        "https://civitai.com/api/download/models/$version_id"
-    if [ ! -s "$dest" ]; then
-        echo "[ERROR] Download failed or empty: $dest"
+        -O "${dest}.tmp" \
+        "https://civitai.com/api/download/models/$version_id" 2>&1 | \
+        stdbuf -oL tr '\r' '\n' | grep -v '^$' | \
+        while IFS= read -r line; do log "     $line"; done || true
+
+    if [ ! -f "${dest}.tmp" ] || [ ! -s "${dest}.tmp" ]; then
+        log "[ERROR] Download produced empty file: $dest"
+        rm -f "${dest}.tmp"
         exit 1
     fi
+
+    mv "${dest}.tmp" "$dest"
+    local elapsed=$(( SECONDS - start_time ))
+    local size
+    size=$(du -sh "$dest" | cut -f1)
+    log "[OK]  $name — ${size} in ${elapsed}s"
 }
 
-echo "=== Downloading models ==="
+# ─── Model downloads ──────────────────────────────────────────────────────────
 
-# 1. 10Eros checkpoint (~30GB) — bundles video VAE + audio VAE
+log "--- 1/7  10Eros checkpoint (~30 GB) ---"
 hf_download \
     "https://huggingface.co/TenStrip/LTX2.3-10Eros/resolve/main/10Eros_v1-fp8mixed_learned.safetensors" \
     "$COMFY_MODELS/checkpoints/10Eros/10Eros_v1-fp8mixed_learned.safetensors"
 
-# 2. Gemma 3 12B text encoder fp8 (~13GB)
+log "--- 2/7  Gemma 3 12B text encoder fp8 (~13 GB) ---"
 hf_download \
     "https://huggingface.co/Comfy-Org/ltx-2/resolve/main/split_files/text_encoders/Gemma_3_12B_it_fp8_scaled.safetensors" \
     "$COMFY_MODELS/text_encoders/split_files/text_encoders/Gemma_3_12B_it_fp8_scaled.safetensors"
 
-# 3. Distilled cond-safe LoRA (~1GB)
+log "--- 3/7  Distilled cond-safe LoRA (~1 GB) ---"
 hf_download \
     "https://huggingface.co/TenStrip/LTX2.3_Distilled_Lora_1.1_Experiments/resolve/main/ltx-2.3-22b-distilled-lora-1.1_fro90_ceil72_condsafe.safetensors" \
     "$COMFY_MODELS/loras/ltxv/ltx2/ltx-2.3-22b-distilled-lora-1.1_fro90_ceil72_condsafe.safetensors"
 
-# 4. Penile Praxis LoRA (Civitai 2772932)
+log "--- 4/7  Penile Praxis V4 LoRA (Civitai 2772932) ---"
 civitai_download "2772932" \
     "$COMFY_MODELS/loras/ltxv/penile_praxis/Penile_Praxis_V4.safetensors"
 
-# 5. Anal Insertion LoRA (Civitai 2767135)
+log "--- 5/7  Anal Insertion LoRA (Civitai 2767135) ---"
 civitai_download "2767135" \
     "$COMFY_MODELS/loras/ltxv/anal_insertion/nsfw_anal_insertion_ltx23_v1.0.safetensors"
 
-# 6. DR34ML4Y LoRA (Civitai 2950842)
+log "--- 6/7  DR34ML4Y LoRA (Civitai 2950842) ---"
 civitai_download "2950842" \
     "$COMFY_MODELS/loras/ltxv/dr34ml4y/DR34ML4Y_LTXXX_V2.safetensors"
 
-# 7. Spatial upscaler (~950MB)
+log "--- 7/7  Spatial upscaler (~950 MB) ---"
 hf_download \
     "https://huggingface.co/Lightricks/LTX-2.3/resolve/main/ltx-2.3-spatial-upscaler-x2-1.1.safetensors" \
     "$COMFY_MODELS/latent_upscale_models/LTX-Video/ltx-2.3-spatial-upscaler-x2-1.1.safetensors"
 
-echo "=== All models downloaded successfully ==="
+# ─── Final inventory ──────────────────────────────────────────────────────────
+log "=== Download complete. Model inventory ==="
+find "$COMFY_MODELS" -type f -name "*.safetensors" | sort | \
+    while IFS= read -r f; do
+        size=$(du -sh "$f" | cut -f1)
+        log "  $size  $f"
+    done
+
+log "=== download_models.sh done ==="

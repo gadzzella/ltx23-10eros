@@ -1,101 +1,145 @@
-"""
-handler.py — RunPod serverless handler for LTX 2.3 / 10Eros
+#!/bin/bash
+set -euo pipefail
 
-Input fields:
-  prompt                 str    required
-  image                  str    optional  base64 image (required for I2V)
-  image_filename         str    optional  default: source_image.png
-  negative_prompt        str    optional
-  aspect_ratio           str    optional  16:9 | 9:16 | 1:1 | 4:3 | 3:4
-  width                  int    optional  default 1280 (overridden by aspect_ratio)
-  height                 int    optional  default 720  (overridden by aspect_ratio)
-  seconds                float  optional  duration — overrides num_frames
-  num_frames             int    optional  default 121
-  fps                    int    optional  default 25
-  seed                   int    optional  random if omitted
-  bypass_i2v             bool   optional  True=T2V, False=I2V (default False)
-  lora_penile_strength   float  optional  default 0.85
-  lora_anal_strength     float  optional  default 0.85
-  lora_dr34ml4y_strength float  optional  default 0.85
-  upscaler_enabled       bool   optional  default True
-  temperature            float  optional  LLM sampling temperature (default 0.7)
-  top_k                  int    optional  LLM top-k (default 64)
-  top_p                  float  optional  LLM top-p (default 0.95)
-  repetition_penalty     float  optional  LLM repetition penalty (default 1.05)
-  thinking               bool   optional  LLM thinking mode (default False)
-"""
+# ─── Logging helpers ──────────────────────────────────────────────────────────
+ts()  { date '+%Y-%m-%dT%H:%M:%S'; }
+log() { echo "[$(ts())] $*"; }
 
-import os
-import base64
-import runpod
-from ltx_payload_builder import build_payload, seconds_to_frames
-from workflow_support import submit_workflow, wait_for_completion, get_output_files
+# MODEL_STORE is set by start.sh and points to the volume (or local fallback)
+COMFY_MODELS="${MODEL_STORE:-/comfyui/models}"
+HF_TOKEN="${HF_TOKEN:-}"
+CIVITAI_TOKEN="${CIVITAI_TOKEN:-}"
 
+log "=== download_models.sh starting ==="
+log "COMFY_MODELS = $COMFY_MODELS"
+log "HF_TOKEN     = ${HF_TOKEN:+set (${#HF_TOKEN} chars)}${HF_TOKEN:-NOT SET}"
+log "CIVITAI_TOKEN= ${CIVITAI_TOKEN:+set (${#CIVITAI_TOKEN} chars)}${CIVITAI_TOKEN:-NOT SET}"
 
-def handler(job: dict) -> dict:
-    inp = job.get("input", {})
+# ─── Download helpers ─────────────────────────────────────────────────────────
 
-    prompt = inp.get("prompt", "").strip()
-    if not prompt:
-        return {"error": "Missing required field: prompt"}
+hf_download() {
+    local url="$1"
+    local dest="$2"
+    local name
+    name="$(basename "$dest")"
 
-    bypass_i2v = bool(inp.get("bypass_i2v", False))
-    image_b64 = inp.get("image")
+    mkdir -p "$(dirname "$dest")"
 
-    if not bypass_i2v and not image_b64:
-        return {"error": "I2V mode requires 'image' (base64). Set bypass_i2v=true for T2V."}
+    if [ -f "$dest" ] && [ -s "$dest" ]; then
+        local size
+        size=$(du -sh "$dest" | cut -f1)
+        log "[SKIP] $name already present ($size)"
+        return 0
+    fi
 
-    fps = int(inp.get("fps", 25))
-    if "seconds" in inp:
-        num_frames = seconds_to_frames(float(inp["seconds"]), fps)
-    else:
-        num_frames = int(inp.get("num_frames", 121))
+    log "[DL] HuggingFace: $name"
+    log "     → $url"
+    log "     → $dest"
 
-    seed = int(inp["seed"]) if "seed" in inp else None
+    local start_time=$SECONDS
+    wget --quiet --show-progress \
+        --header="Authorization: Bearer $HF_TOKEN" \
+        -O "${dest}.tmp" "$url" 2>&1 | \
+        stdbuf -oL tr '\r' '\n' | grep -v '^$' | \
+        while IFS= read -r line; do log "     $line"; done || true
 
-    workflow, images = build_payload(
-        prompt=prompt,
-        image_b64=image_b64,
-        image_filename=inp.get("image_filename", "source_image.png"),
-        negative_prompt=inp.get("negative_prompt", "pc game, console game, video game, cartoon, childish, ugly"),
-        width=int(inp.get("width", 1280)),
-        height=int(inp.get("height", 720)),
-        aspect_ratio=inp.get("aspect_ratio"),
-        num_frames=num_frames,
-        fps=fps,
-        seed=seed,
-        bypass_i2v=bypass_i2v,
-        lora_penile_strength=float(inp.get("lora_penile_strength", 0.85)),
-        lora_anal_strength=float(inp.get("lora_anal_strength", 0.85)),
-        lora_dr34ml4y_strength=float(inp.get("lora_dr34ml4y_strength", 0.85)),
-        upscaler_enabled=bool(inp.get("upscaler_enabled", True)),
-        temperature=float(inp.get("temperature", 0.7)),
-        top_k=int(inp.get("top_k", 64)),
-        top_p=float(inp.get("top_p", 0.95)),
-        repetition_penalty=float(inp.get("repetition_penalty", 1.05)),
-        thinking=bool(inp.get("thinking", False)),
-    )
+    if [ ! -f "${dest}.tmp" ] || [ ! -s "${dest}.tmp" ]; then
+        log "[ERROR] Download produced empty file: $dest"
+        rm -f "${dest}.tmp"
+        exit 1
+    fi
 
-    # Write images to ComfyUI input folder
-    if images:
-        input_dir = "/comfyui/input"
-        os.makedirs(input_dir, exist_ok=True)
-        for img in images:
-            img_bytes = base64.b64decode(img["image"])
-            with open(os.path.join(input_dir, img["name"]), "wb") as f:
-                f.write(img_bytes)
+    mv "${dest}.tmp" "$dest"
+    local elapsed=$(( SECONDS - start_time ))
+    local size
+    size=$(du -sh "$dest" | cut -f1)
+    log "[OK]  $name — ${size} in ${elapsed}s"
+}
 
-    prompt_id = submit_workflow(workflow)
-    history = wait_for_completion(prompt_id, timeout=900)
+civitai_download() {
+    local version_id="$1"
+    local dest="$2"
+    local name
+    name="$(basename "$dest")"
 
-    if not history:
-        return {"error": f"Workflow timed out or returned no history. prompt_id={prompt_id}"}
+    mkdir -p "$(dirname "$dest")"
 
-    outputs = get_output_files(history)
-    if not outputs:
-        return {"error": "Workflow completed but produced no output files."}
+    if [ -f "$dest" ] && [ -s "$dest" ]; then
+        local size
+        size=$(du -sh "$dest" | cut -f1)
+        log "[SKIP] $name already present ($size)"
+        return 0
+    fi
 
-    return {"output": outputs}
+    if [ -z "$CIVITAI_TOKEN" ]; then
+        log "[ERROR] CIVITAI_TOKEN not set — cannot download $name (version $version_id)"
+        exit 1
+    fi
 
+    log "[DL] Civitai version $version_id: $name"
+    log "     → $dest"
 
-runpod.serverless.start({"handler": handler})
+    local start_time=$SECONDS
+    wget --quiet --show-progress \
+        --header="Authorization: Bearer $CIVITAI_TOKEN" \
+        -O "${dest}.tmp" \
+        "https://civitai.com/api/download/models/$version_id" 2>&1 | \
+        stdbuf -oL tr '\r' '\n' | grep -v '^$' | \
+        while IFS= read -r line; do log "     $line"; done || true
+
+    if [ ! -f "${dest}.tmp" ] || [ ! -s "${dest}.tmp" ]; then
+        log "[ERROR] Download produced empty file: $dest"
+        rm -f "${dest}.tmp"
+        exit 1
+    fi
+
+    mv "${dest}.tmp" "$dest"
+    local elapsed=$(( SECONDS - start_time ))
+    local size
+    size=$(du -sh "$dest" | cut -f1)
+    log "[OK]  $name — ${size} in ${elapsed}s"
+}
+
+# ─── Model downloads ──────────────────────────────────────────────────────────
+
+log "--- 1/7  10Eros checkpoint (~30 GB) ---"
+hf_download \
+    "https://huggingface.co/TenStrip/LTX2.3-10Eros/resolve/main/10Eros_v1-fp8mixed_learned.safetensors" \
+    "$COMFY_MODELS/checkpoints/10Eros/10Eros_v1-fp8mixed_learned.safetensors"
+
+log "--- 2/7  Gemma 3 12B text encoder fp8 (~13 GB) ---"
+hf_download \
+    "https://huggingface.co/Comfy-Org/ltx-2/resolve/main/split_files/text_encoders/Gemma_3_12B_it_fp8_scaled.safetensors" \
+    "$COMFY_MODELS/text_encoders/split_files/text_encoders/Gemma_3_12B_it_fp8_scaled.safetensors"
+
+log "--- 3/7  Distilled cond-safe LoRA (~1 GB) ---"
+hf_download \
+    "https://huggingface.co/TenStrip/LTX2.3_Distilled_Lora_1.1_Experiments/resolve/main/ltx-2.3-22b-distilled-lora-1.1_fro90_ceil72_condsafe.safetensors" \
+    "$COMFY_MODELS/loras/ltxv/ltx2/ltx-2.3-22b-distilled-lora-1.1_fro90_ceil72_condsafe.safetensors"
+
+log "--- 4/7  Penile Praxis V4 LoRA (Civitai 2772932) ---"
+civitai_download "2772932" \
+    "$COMFY_MODELS/loras/ltxv/penile_praxis/Penile_Praxis_V4.safetensors"
+
+log "--- 5/7  Anal Insertion LoRA (Civitai 2767135) ---"
+civitai_download "2767135" \
+    "$COMFY_MODELS/loras/ltxv/anal_insertion/nsfw_anal_insertion_ltx23_v1.0.safetensors"
+
+log "--- 6/7  DR34ML4Y LoRA (Civitai 2950842) ---"
+civitai_download "2950842" \
+    "$COMFY_MODELS/loras/ltxv/dr34ml4y/DR34ML4Y_LTXXX_V2.safetensors"
+
+log "--- 7/7  Spatial upscaler (~950 MB) ---"
+hf_download \
+    "https://huggingface.co/Lightricks/LTX-2.3/resolve/main/ltx-2.3-spatial-upscaler-x2-1.1.safetensors" \
+    "$COMFY_MODELS/latent_upscale_models/LTX-Video/ltx-2.3-spatial-upscaler-x2-1.1.safetensors"
+
+# ─── Final inventory ──────────────────────────────────────────────────────────
+log "=== Download complete. Model inventory ==="
+find "$COMFY_MODELS" -type f -name "*.safetensors" | sort | \
+    while IFS= read -r f; do
+        size=$(du -sh "$f" | cut -f1)
+        log "  $size  $f"
+    done
+
+log "=== download_models.sh done ==="

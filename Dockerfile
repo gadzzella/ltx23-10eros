@@ -4,11 +4,15 @@ FROM nvidia/cuda:12.8.1-cudnn-runtime-ubuntu22.04
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PIP_PREFER_BINARY=1
 ENV PYTHONUNBUFFERED=1
+# Flush Python logs immediately to RunPod's log stream
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONFAULTHANDLER=1
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     python3.11 python3.11-venv python3-pip \
     git wget curl libgl1 libglib2.0-0 \
     libsm6 libxext6 libxrender1 ffmpeg \
+    stdbuf \
     && ln -sf /usr/bin/python3.11 /usr/bin/python \
     && ln -sf /usr/bin/python3.11 /usr/bin/python3 \
     && rm -rf /var/lib/apt/lists/*
@@ -45,12 +49,15 @@ WORKDIR /
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# App files only — models download at runtime via start.sh
+# App files only — models are downloaded at first start into the network volume
 COPY src/start.sh /src/start.sh
 COPY src/download_models.sh /src/download_models.sh
 COPY handler.py ltx_payload_builder.py workflow_support.py \
      video_ltx23_10eros_i2v_API.json ./
 
 RUN chmod +x /src/start.sh /src/download_models.sh
+
+# Create ComfyUI output dir so it's always present
+RUN mkdir -p /comfyui/output /comfyui/input
 
 CMD ["/src/start.sh"]
