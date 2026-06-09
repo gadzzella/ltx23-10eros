@@ -2,8 +2,7 @@
 set -euo pipefail
 
 # ─── Logging helpers ──────────────────────────────────────────────────────────
-ts()  { date '+%Y-%m-%dT%H:%M:%S'; }
-log() { echo "[$(ts())] $*"; }
+log() { echo "[$(date '+%Y-%m-%dT%H:%M:%S')] $*"; }
 
 # MODEL_STORE is set by start.sh and points to the volume (or local fallback)
 COMFY_MODELS="${MODEL_STORE:-/comfyui/models}"
