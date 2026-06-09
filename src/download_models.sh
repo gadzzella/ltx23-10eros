@@ -37,10 +37,9 @@ hf_download() {
     log "     → $dest"
 
     local start_time=$SECONDS
-    wget --quiet --show-progress \
+    wget --progress=dot:giga \
         --header="Authorization: Bearer $HF_TOKEN" \
         -O "${dest}.tmp" "$url" 2>&1 | \
-        stdbuf -oL tr '\r' '\n' | grep -v '^$' | \
         while IFS= read -r line; do log "     $line"; done || true
 
     if [ ! -f "${dest}.tmp" ] || [ ! -s "${dest}.tmp" ]; then
@@ -80,11 +79,10 @@ civitai_download() {
     log "     → $dest"
 
     local start_time=$SECONDS
-    wget --quiet --show-progress \
+    wget --progress=dot:giga \
         --header="Authorization: Bearer $CIVITAI_TOKEN" \
         -O "${dest}.tmp" \
         "https://civitai.com/api/download/models/$version_id" 2>&1 | \
-        stdbuf -oL tr '\r' '\n' | grep -v '^$' | \
         while IFS= read -r line; do log "     $line"; done || true
 
     if [ ! -f "${dest}.tmp" ] || [ ! -s "${dest}.tmp" ]; then
