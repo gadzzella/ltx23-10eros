@@ -1,4 +1,4 @@
-# syntax=docker/dockerfile:1.7
+
 # ─────────────────────────────────────────────────────────────────────────────
 #  LTX 2.3 / 10Eros — BAKED IMAGE
 #  All models are downloaded at BUILD time. No network volume required.
