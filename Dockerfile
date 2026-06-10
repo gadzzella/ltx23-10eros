@@ -93,6 +93,27 @@ RUN mkdir -p \
     /comfyui/output \
     /comfyui/input
 
+# ─── Bake placeholder image (required for T2V / bypass_i2v mode) ──────────────
+# ComfyUI's LoadImage node is always executed in the graph even when bypass_i2v=True,
+# because TextGenerateLTX2Prompt and ResizeImageMaskNode both consume it unconditionally.
+# A valid placeholder.png must exist in /comfyui/input/ at startup.
+RUN python3 -c "
+import base64, struct, zlib, os
+def png8x8_white():
+    def chunk(t, d):
+        import zlib as z
+        crc = z.crc32(t + d) & 0xffffffff
+        return struct.pack('>I', len(d)) + t + d + struct.pack('>I', crc)
+    ihdr = struct.pack('>IIBBBBB', 8, 8, 8, 2, 0, 0, 0)
+    raw = b''.join(b'\x00' + b'\xff\xff\xff' * 8 for _ in range(8))
+    idat = zlib.compress(raw)
+    return b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR', ihdr) + chunk(b'IDAT', idat) + chunk(b'IEND', b'')
+os.makedirs('/comfyui/input', exist_ok=True)
+with open('/comfyui/input/placeholder.png', 'wb') as f:
+    f.write(png8x8_white())
+print('placeholder.png written:', os.path.getsize('/comfyui/input/placeholder.png'), 'bytes')
+"
+
 # ─── Bake models ──────────────────────────────────────────────────────────────
 # Each model is a separate RUN layer so Docker layer cache can be reused
 # on rebuilds if only one model changes. .tmp → mv pattern prevents partial

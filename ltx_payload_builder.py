@@ -154,8 +154,11 @@ def build_payload(
             image_b64 = image_b64.split(",", 1)[1]
         workflow["269"]["inputs"]["image"] = fname
         images.append({"name": fname, "image": image_b64})
-    elif bypass_i2v:
-        # T2V mode: LoadImage node still needs a filename, use placeholder
+    else:
+        # T2V mode (bypass_i2v=True) or no image supplied:
+        # placeholder.png is baked at /comfyui/input/placeholder.png during Docker build.
+        # LoadImage is always executed in the graph (used by TextGenerateLTX2Prompt
+        # and ResizeImageMaskNode), so it must point to a file that exists.
         workflow["269"]["inputs"]["image"] = "placeholder.png"
 
     return workflow, images

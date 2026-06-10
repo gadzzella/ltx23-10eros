@@ -24,6 +24,7 @@ log "[MODELS] Verifying baked model files..."
 
 MODELS_OK=1
 REQUIRED_FILES=(
+    "/comfyui/input/placeholder.png"
     "/comfyui/models/checkpoints/10Eros/10Eros_v1-fp8mixed_learned.safetensors"
     "/comfyui/models/text_encoders/split_files/text_encoders/Gemma_3_12B_it_fp8_scaled.safetensors"
     "/comfyui/models/loras/ltxv/ltx2/ltx-2.3-22b-distilled-lora-1.1_fro90_ceil72_condsafe.safetensors"
