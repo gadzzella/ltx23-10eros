@@ -1,0 +1,7 @@
+ltx_worker:
+  base_path: /comfyui/models
+  checkpoints: checkpoints
+  loras: loras
+  text_encoders: text_encoders
+  latent_upscale_models: latent_upscale_models
+  vae: vae
