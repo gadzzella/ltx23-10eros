@@ -82,6 +82,7 @@ def wait_for_completion(prompt_id: str, timeout: int = 900) -> dict:
     try:
         while time.time() < deadline:
             remaining = deadline - time.time()
+            remaining = max(0.1, remaining)
             ws.settimeout(min(remaining, 10))
 
             try:
