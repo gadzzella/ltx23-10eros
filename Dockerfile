@@ -84,7 +84,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # ─── Model directories ────────────────────────────────────────────────────────
 RUN mkdir -p \
     /comfyui/models/checkpoints/10Eros \
-    /comfyui/models/text_encoders/split_files/text_encoders \
+    /comfyui/models/text_encoders \
     /comfyui/models/loras/ltxv/ltx2 \
     /comfyui/models/loras/ltxv/penile_praxis \
     /comfyui/models/loras/ltxv/anal_insertion \
@@ -123,7 +123,7 @@ print('placeholder.png written:', os.path.getsize('/comfyui/input/placeholder.pn
 ARG HF_TOKEN
 ARG CIVITAI_TOKEN
 
-# --- 1/7  10Eros checkpoint (~30 GB) ---
+# --- 1/8  10Eros checkpoint (~30 GB) ---
 # TenStrip/LTX2.3-10Eros is a gated HF repo — HF_TOKEN required
 RUN wget -q --show-progress --progress=dot:giga \
     --header="Authorization: Bearer ${HF_TOKEN}" \
@@ -133,17 +133,27 @@ RUN wget -q --show-progress --progress=dot:giga \
           /comfyui/models/checkpoints/10Eros/10Eros_v1-fp8mixed_learned.safetensors \
     && echo "✓ 10Eros checkpoint: $(du -sh /comfyui/models/checkpoints/10Eros/10Eros_v1-fp8mixed_learned.safetensors | cut -f1)"
 
-# --- 2/7  Gemma 3 12B text encoder fp8 (~13 GB) ---
+# --- 2/8  Gemma 3 12B text encoder fp8 (~13 GB) ---
 # Comfy-Org/ltx-2 is public — HF_TOKEN still passed for rate-limit headroom
 RUN wget -q --show-progress --progress=dot:giga \
     --header="Authorization: Bearer ${HF_TOKEN}" \
-    -O /comfyui/models/text_encoders/split_files/text_encoders/Gemma_3_12B_it_fp8_scaled.safetensors.tmp \
+    -O /comfyui/models/text_encoders/gemma_3_12B_it_fp8_scaled.safetensors.tmp \
     "https://huggingface.co/Comfy-Org/ltx-2/resolve/main/split_files/text_encoders/Gemma_3_12B_it_fp8_scaled.safetensors" \
-    && mv /comfyui/models/text_encoders/split_files/text_encoders/Gemma_3_12B_it_fp8_scaled.safetensors.tmp \
-          /comfyui/models/text_encoders/split_files/text_encoders/Gemma_3_12B_it_fp8_scaled.safetensors \
-    && echo "✓ Gemma text encoder: $(du -sh /comfyui/models/text_encoders/split_files/text_encoders/Gemma_3_12B_it_fp8_scaled.safetensors | cut -f1)"
+    && mv /comfyui/models/text_encoders/gemma_3_12B_it_fp8_scaled.safetensors.tmp \
+          /comfyui/models/text_encoders/gemma_3_12B_it_fp8_scaled.safetensors \
+    && echo "✓ Gemma text encoder: $(du -sh /comfyui/models/text_encoders/gemma_3_12B_it_fp8_scaled.safetensors | cut -f1)"
 
-# --- 3/7  Distilled cond-safe LoRA (~1 GB) ---
+# --- 3/8  LTX-2 19B embeddings connector, distilled (~2.7 GB) ---
+# Kijai/LTXV2_comfy — public, used alongside the distilled checkpoint/LoRA
+RUN wget -q --show-progress --progress=dot:giga \
+    --header="Authorization: Bearer ${HF_TOKEN}" \
+    -O /comfyui/models/text_encoders/ltx-2-19b-embeddings_connector_distill_bf16.safetensors.tmp \
+    "https://huggingface.co/Kijai/LTXV2_comfy/resolve/main/text_encoders/ltx-2-19b-embeddings_connector_distill_bf16.safetensors" \
+    && mv /comfyui/models/text_encoders/ltx-2-19b-embeddings_connector_distill_bf16.safetensors.tmp \
+          /comfyui/models/text_encoders/ltx-2-19b-embeddings_connector_distill_bf16.safetensors \
+    && echo "✓ Embeddings connector: $(du -sh /comfyui/models/text_encoders/ltx-2-19b-embeddings_connector_distill_bf16.safetensors | cut -f1)"
+
+# --- 4/8  Distilled cond-safe LoRA (~1 GB) ---
 # TenStrip/LTX2.3_Distilled_Lora_1.1_Experiments — HF_TOKEN required
 RUN wget -q --show-progress --progress=dot:giga \
     --header="Authorization: Bearer ${HF_TOKEN}" \
@@ -153,7 +163,7 @@ RUN wget -q --show-progress --progress=dot:giga \
           /comfyui/models/loras/ltxv/ltx2/ltx-2.3-22b-distilled-lora-1.1_fro90_ceil72_condsafe.safetensors \
     && echo "✓ Distilled LoRA: $(du -sh /comfyui/models/loras/ltxv/ltx2/ltx-2.3-22b-distilled-lora-1.1_fro90_ceil72_condsafe.safetensors | cut -f1)"
 
-# --- 4/7  Penile Praxis V4 LoRA (Civitai version 2772932) ---
+# --- 5/8  Penile Praxis V4 LoRA (Civitai version 2772932) ---
 # Civitai redirects to CDN — wget follows redirects automatically
 RUN wget -q --show-progress --progress=dot:giga \
     --content-disposition \
@@ -164,7 +174,7 @@ RUN wget -q --show-progress --progress=dot:giga \
           /comfyui/models/loras/ltxv/penile_praxis/Penile_Praxis_V4.safetensors \
     && echo "✓ Penile Praxis V4: $(du -sh /comfyui/models/loras/ltxv/penile_praxis/Penile_Praxis_V4.safetensors | cut -f1)"
 
-# --- 5/7  Anal Insertion LoRA (Civitai version 2767135) ---
+# --- 6/8  Anal Insertion LoRA (Civitai version 2767135) ---
 RUN wget -q --show-progress --progress=dot:giga \
     --content-disposition \
     --header="Authorization: Bearer ${CIVITAI_TOKEN}" \
@@ -174,7 +184,7 @@ RUN wget -q --show-progress --progress=dot:giga \
           /comfyui/models/loras/ltxv/anal_insertion/nsfw_anal_insertion_ltx23_v1.0.safetensors \
     && echo "✓ Anal Insertion LoRA: $(du -sh /comfyui/models/loras/ltxv/anal_insertion/nsfw_anal_insertion_ltx23_v1.0.safetensors | cut -f1)"
 
-# --- 6/7  DR34ML4Y LoRA (Civitai version 2950842) ---
+# --- 7/8  DR34ML4Y LoRA (Civitai version 2950842) ---
 RUN wget -q --show-progress --progress=dot:giga \
     --content-disposition \
     --header="Authorization: Bearer ${CIVITAI_TOKEN}" \
@@ -184,7 +194,7 @@ RUN wget -q --show-progress --progress=dot:giga \
           /comfyui/models/loras/ltxv/dr34ml4y/DR34ML4Y_LTXXX_V2.safetensors \
     && echo "✓ DR34ML4Y LoRA: $(du -sh /comfyui/models/loras/ltxv/dr34ml4y/DR34ML4Y_LTXXX_V2.safetensors | cut -f1)"
 
-# --- 7/7  Spatial upscaler (~950 MB) ---
+# --- 8/8  Spatial upscaler (~950 MB) ---
 # Lightricks/LTX-2.3 is public
 RUN wget -q --show-progress --progress=dot:giga \
     --header="Authorization: Bearer ${HF_TOKEN}" \

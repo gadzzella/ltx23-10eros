@@ -134,7 +134,7 @@
   },
   "267:243": {
     "inputs": {
-      "text_encoder": "split_files/text_encoders/Gemma_3_12B_it_fp8_scaled.safetensors",
+      "text_encoder": "gemma_3_12B_it_fp8_scaled.safetensors",
       "ckpt_name": "10Eros/10Eros_v1-fp8mixed_learned.safetensors",
       "device": "default"
     },
